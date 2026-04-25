@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>XAM VPN</title>
+
+<style>
+body {
+    font-family: Arial;
+    background: #0f172a;
+    color: white;
+    text-align: center;
+    padding: 40px;
+}
+#list {
+    max-width: 700px;
+    margin: auto;
+    text-align: left;
+}
+.server {
+    padding: 10px;
+    border-bottom: 1px solid #333;
+}
+small { color: #aaa; }
+</style>
+
+</head>
+<body>
+
+<h1>XAM VPN</h1>
+<small id="updated">Загрузка...</small>
+
+<div id="list"></div>
+
+<script>
+const SOURCE = "https://tiagorrg.github.io/vless-checker/keys.json";
+
+// приоритет
+const PRIORITY = ["netherlands", "germany", "baltics"];
+
+// названия
+const RU = {
+    netherlands: "Нидерланды",
+    germany: "Германия",
+    baltics: "Прибалтика",
+    finland: "Финляндия",
+    russia: "Россия"
+};
+
+// флаги
+const FLAGS = {
+    netherlands: "🇳🇱",
+    germany: "🇩🇪",
+    baltics: "🇪🇪",
+    finland: "🇫🇮",
+    russia: "🇷🇺"
+};
+
+// авто-обновление (каждые 60 сек)
+const REFRESH_INTERVAL = 60000;
+
+// проверка happ
+function isHapp() {
+    const ua = navigator.userAgent.toLowerCase();
+    return ua.includes("happ") || location.search.includes("happ");
+}
+
+// fallback логика
+function getBest(block) {
+    if (!block) return null;
+
+    if (block.best) return block.best;
+
+    if (block.top10 && block.top10.length > 0) {
+        return block.top10[0].key;
+    }
+
+    return null;
+}
+
+// очистка ключа
+function formatKey(key, name) {
+    return key.replace(/#.*$/, "") + "#" + encodeURIComponent(name);
+}
+
+async function load() {
+    try {
+        const res = await fetch(SOURCE + "?t=" + Date.now());
+        const data = await res.json();
+
+        let result = [];
+
+        // 1. приоритет
+        PRIORITY.forEach(name => {
+            let key = getBest(data[name]);
+            if (key) {
+                result.push({ country: name, key });
+            }
+        });
+
+        // 2. остальные
+        Object.keys(data).forEach(name => {
+            if (name === "updated_at") return;
+            if (PRIORITY.includes(name)) return;
+
+            let key = getBest(data[name]);
+            if (key) {
+                result.push({ country: name, key });
+            }
+        });
+
+        // 3. белый список (Россия)
+        if (data.russia) {
+            let key = getBest(data.russia);
+            if (key) {
+                result.push({
+                    country: "russia",
+                    key,
+                    white: true
+                });
+            }
+        }
+
+        // обновление времени
+        document.getElementById("updated").innerText =
+            "Обновлено: " + (data.updated_at || "—");
+
+        // HAPP
+        if (isHapp()) {
+            let out = "# XAM VPN\n\n";
+
+            result.forEach(item => {
+                let name;
+
+                if (item.white) {
+                    name = "Белые списки";
+                } else {
+                    name = RU[item.country] || item.country;
+                }
+
+                let flag = FLAGS[item.country] || "";
+                let finalName = flag + " " + name;
+
+                out += formatKey(item.key, finalName) + "\n";
+            });
+
+            document.body.innerText = out;
+            return;
+        }
+
+        // UI
+        const list = document.getElementById("list");
+        list.innerHTML = "";
+
+        result.forEach(item => {
+            let name;
+
+            if (item.white) {
+                name = "Белые списки (Россия)";
+            } else {
+                name = RU[item.country] || item.country;
+            }
+
+            let flag = FLAGS[item.country] || "";
+
+            let div = document.createElement("div");
+            div.className = "server";
+            div.innerText = flag + " " + name;
+
+            list.appendChild(div);
+        });
+
+    } catch (e) {
+        document.getElementById("list").innerText = "Ошибка загрузки";
+        console.error(e);
+    }
+}
+
+// первый запуск
+load();
+
+// авто-обновление
+setInterval(load, REFRESH_INTERVAL);
+
+</script>
+
+</body>
+</html>
