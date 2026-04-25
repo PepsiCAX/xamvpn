@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>sub</title>
+</head>
+<body>
+
+<script>
+const SOURCE = "https://tiagorrg.github.io/vless-checker/keys.json";
+
+const PRIORITY = ["netherlands", "germany", "baltics"];
+
+const RU = {
+    netherlands: "Нидерланды",
+    germany: "Германия",
+    baltics: "Прибалтика",
+    finland: "Финляндия",
+    russia: "Россия"
+};
+
+const FLAGS = {
+    netherlands: "🇳🇱",
+    germany: "🇩🇪",
+    baltics: "🇪🇪",
+    finland: "🇫🇮",
+    russia: "🇷🇺"
+};
+
+function getBest(block) {
+    if (!block) return null;
+    if (block.best) return block.best;
+    if (block.top10?.length) return block.top10[0].key;
+    return null;
+}
+
+function clean(key, name) {
+    return key.replace(/#.*$/, "") + "#" + name;
+}
+
+// base64 для announce
+function toBase64(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+}
+
+// unix expire (например +30 дней)
+function getExpire() {
+    return Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60);
+}
+
+// дата
+function getDate() {
+    return new Date().toISOString().replace("T", " ").split(".")[0];
+}
+
+async function run() {
+    const res = await fetch(SOURCE + "?t=" + Date.now());
+    const data = await res.json();
+
+    let result = [];
+
+    // приоритет
+    PRIORITY.forEach(name => {
+        let key = getBest(data[name]);
+        if (key) result.push({ country: name, key });
+    });
+
+    // остальные
+    Object.keys(data).forEach(name => {
+        if (name === "updated_at" || PRIORITY.includes(name)) return;
+
+        let key = getBest(data[name]);
+        if (key) result.push({ country: name, key });
+    });
+
+    // белый список (Россия)
+    if (data.russia) {
+        let key = getBest(data.russia);
+        if (key) {
+            result.push({
+                country: "russia",
+                key,
+                white: true
+            });
+        }
+    }
+
+    // ===== ШАПКА =====
+    let announceText = "Добро пожаловать в SIRIUS VPN 🚀";
+    let announceBase64 = toBase64(announceText);
+
+    let out = "";
+    out += "# profile-title: 🏳️ SIRIUS VPN 🏳️\n";
+    out += "# profile-update-interval: 5\n";
+    out += "# support-url: https://t.me/kotR_MrRuuka\n";
+    out += "# profile-web-page-url: https://your-site.com\n";
+    out += "# announce: base64:" + announceBase64 + "\n";
+    out += "# subscription-userinfo: upload=0; download=0; total=0; expire=" + getExpire() + "\n";
+    out += "# traffic-limit: 0\n";
+    out += "# Date/Time: " + getDate() + "\n";
+    out += "# Количество: " + result.length + "\n\n";
+
+    // ===== СЕРВЕРА =====
+    result.forEach(item => {
+        let name;
+
+        if (item.white) {
+            name = "Белые списки";
+        } else {
+            name = RU[item.country] || item.country;
+        }
+
+        let flag = FLAGS[item.country] || "";
+        let final = flag + " " + name;
+
+        out += clean(item.key, final) + "\n";
+    });
+
+    document.body.innerText = out;
+}
+
+run();
+</script>
+
+</body>
+</html>
