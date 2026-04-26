@@ -1,5 +1,4 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
-import json
 import time
 import base64
 import requests
@@ -13,51 +12,93 @@ RU = {
     "germany": "Германия",
     "baltics": "Прибалтика",
     "finland": "Финляндия",
-    "russia": "Россия"
+    "russia": "Россия",
+    "poland": "Польша",
+    "sweden": "Швеция"
 }
 
-def get_best(block):
-    if not block:
+FLAGS = {
+    "netherlands": "🇳🇱",
+    "germany": "🇩🇪",
+    "baltics": "🇪🇪",
+    "finland": "🇫🇮",
+    "russia": "🇷🇺",
+    "poland": "🇵🇱",
+    "sweden": "🇸🇪"
+}
+
+def best_latency(nodes):
+    """
+    выбираем сервер с минимальной latency
+    """
+    if not nodes:
         return None
-    if "best" in block:
-        return block["best"]
-    if "top10" in block and len(block["top10"]) > 0:
-        return block["top10"][0]["key"]
-    return None
+
+    best = None
+    best_ping = 999999
+
+    for n in nodes:
+        key = n.get("key")
+        ping = n.get("latency_ms", 999999)
+
+        if key and ping < best_ping:
+            best = key
+            best_ping = ping
+
+    return best
+
+def extract_all_variants(data, country):
+    """
+    собираем country + w_country
+    """
+    nodes = []
+
+    if country in data:
+        for s in data[country].get("top10", []):
+            nodes.append(s)
+
+    w_key = "w_" + country
+    if w_key in data:
+        for s in data[w_key].get("top10", []):
+            nodes.append(s)
+
+    return nodes
 
 def clean(key, name):
     return key.split("#")[0] + "#" + name
 
-def build_subscription():
+def build():
     data = requests.get(SOURCE, timeout=10).json()
 
     result = []
 
-    # priority
+    # приоритет стран
     for c in PRIORITY:
-        if c in data:
-            k = get_best(data[c])
-            if k:
-                result.append((c, k, False))
+        nodes = extract_all_variants(data, c)
+        best = best_latency(nodes)
 
-    # others
+        if best:
+            result.append((c, best, False))
+
+    # остальные
     for c in data:
-        if c == "updated_at":
-            continue
-        if c in PRIORITY:
+        if c in ["updated_at"] or c in PRIORITY or c.startswith("w_"):
             continue
 
-        k = get_best(data[c])
-        if k:
-            result.append((c, k, False))
+        nodes = extract_all_variants(data, c)
+        best = best_latency(nodes)
 
-    # whitelist (Russia)
-    if "russia" in data:
-        k = get_best(data["russia"])
-        if k:
-            result.append(("russia", k, True))
+        if best:
+            result.append((c, best, False))
 
-    # header
+    # white list (Russia)
+    nodes = extract_all_variants(data, "russia")
+    best = best_latency(nodes)
+
+    if best:
+        result.append(("russia", best, True))
+
+    # ===== HEADER =====
     announce = base64.b64encode("Welcome to XAMVPN 🚀".encode()).decode()
     expire = int(time.time()) + 30 * 24 * 60 * 60
     date = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
@@ -74,8 +115,16 @@ def build_subscription():
     out += "# Количество: " + str(len(result)) + "\n\n"
 
     for c, k, white in result:
-        name = "Белые списки" if white else RU.get(c, c)
-        out += clean(k, name) + "\n"
+
+        if white:
+            name = "LTE | Белые списки"
+            flag = FLAGS.get("russia", "")
+        else:
+            name = RU.get(c, c)
+            flag = FLAGS.get(c, "")
+
+        final_name = f"{flag} {name}".strip()
+        out += clean(k, final_name) + "\n"
 
     return out
 
@@ -84,11 +133,14 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith("/sub"):
             try:
-                content = build_subscription()
+                content = build()
+
                 self.send_response(200)
                 self.send_header("Content-Type", "text/plain; charset=utf-8")
                 self.end_headers()
-                self.wfile.write(content.encode())
+
+                self.wfile.write(content.encode("utf-8"))
+
             except Exception as e:
                 self.send_response(500)
                 self.end_headers()
@@ -96,9 +148,9 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.send_response(200)
             self.end_headers()
-            self.wfile.write(b"XAMVPN server running")
+            self.wfile.write(b"XAMVPN running")
 
 
-print("XAMVPN running on http://0.0.0.0:8000/sub")
+print("XAMVPN running: http://0.0.0.0:8000/sub")
 
 HTTPServer(("0.0.0.0", 8000), Handler).serve_forever()
