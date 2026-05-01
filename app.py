@@ -6,6 +6,7 @@ import json
 
 SOURCE = "https://tiagorrg.github.io/vless-checker/keys.json"
 DATA_FILE = "subscriptions.json"
+SOURCE_CACHE_TTL_SEC = 300
 
 subscriptions = {}
 
@@ -37,6 +38,17 @@ FLAGS = {
     "sweden": "🇸🇪"
 }
 
+_source_cache = {"ts": 0.0, "data": None}
+
+def get_source_data():
+    now = time.time()
+    if _source_cache["data"] is not None and (now - _source_cache["ts"]) < SOURCE_CACHE_TTL_SEC:
+        return _source_cache["data"]
+    data = requests.get(SOURCE, timeout=10).json()
+    _source_cache["ts"] = now
+    _source_cache["data"] = data
+    return data
+
 def best_latency(nodes):
     """выбираем сервер с минимальной latency"""
     if not nodes:
@@ -67,7 +79,7 @@ def clean(key, name):
     return key.split("#")[0] + "#" + name
 
 def build():
-    data = requests.get(SOURCE, timeout=10).json()
+    data = get_source_data()
     result = []
     # приоритет стран
     for c in PRIORITY:
@@ -115,7 +127,7 @@ def build():
 
 def build_for_user(telegram_id):
     """генерирует подписку для конкретного пользователя"""
-    data = requests.get(SOURCE, timeout=10).json()
+    data = get_source_data()
     result = []
     for c in PRIORITY:
         nodes = extract_all_variants(data, c)
@@ -159,6 +171,22 @@ def build_for_user(telegram_id):
     return out
 
 class Handler(BaseHTTPRequestHandler):
+    def _base_url(self):
+        # Respect reverse proxies if the mini app is behind one.
+        proto = self.headers.get("X-Forwarded-Proto") or "http"
+        host = self.headers.get("Host") or "localhost:8000"
+        return f"{proto}://{host}"
+
+    def _send_cors_headers(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+    
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self._send_cors_headers()
+        self.end_headers()
+
     def do_GET(self):
         if self.path.startswith("/sub"):
             parts = self.path.split("/")
@@ -170,40 +198,82 @@ class Handler(BaseHTTPRequestHandler):
                 content = build_for_user(telegram_id)
                 self.send_response(200)
                 self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self._send_cors_headers()
                 self.end_headers()
                 self.wfile.write(content.encode("utf-8"))
             except Exception as e:
                 self.send_response(500)
+                self._send_cors_headers()
+                self.end_headers()
+                self.wfile.write(str(e).encode())
+        elif self.path.startswith("/subscriptions/"):
+            parts = self.path.split("/")
+            if len(parts) >= 3 and parts[2]:
+                telegram_id = parts[2]
+            else:
+                telegram_id = "0"
+            try:
+                content = build_for_user(telegram_id)
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self._send_cors_headers()
+                self.end_headers()
+                self.wfile.write(content.encode("utf-8"))
+            except Exception as e:
+                self.send_response(500)
+                self._send_cors_headers()
                 self.end_headers()
                 self.wfile.write(str(e).encode())
         else:
             self.send_response(200)
+            self._send_cors_headers()
             self.end_headers()
             self.wfile.write(b"JadeVPN running")
 
     def do_POST(self):
-        if self.path.startswith("/sub"):
+        if self.path.startswith("/sub") or self.path.startswith("/subscriptions"):
             try:
                 content_length = int(self.headers.get("Content-Length", 0))
-                body = self.rfile.read(content_length).decode("utf-8")
-                data = json.loads(body)
-                telegram_id = str(data.get("telegram_id", "0"))
+                body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
+                data = json.loads(body) if body else {}
+
+                telegram_id = str(data.get("telegram_id") or data.get("telegramId") or data.get("id") or "0")
+
                 subscriptions[telegram_id] = {
                     "created": time.time(),
-                    "key": f"vless://{telegram_id}@jadevpn.local:443?type=reality"
+                    "telegram_id": telegram_id,
                 }
-                with open(DATA_FILE, "w") as f:
-                    json.dump(subscriptions, f)
+                with open(DATA_FILE, "w", encoding="utf-8") as f:
+                    json.dump(subscriptions, f, ensure_ascii=False)
+
+                subscription_url = f"{self._base_url()}/subscriptions/{telegram_id}"
+
                 self.send_response(200)
-                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self._send_cors_headers()
                 self.end_headers()
-                self.wfile.write(json.dumps({"status": "ok", "telegram_id": telegram_id}).encode())
+                self.wfile.write(
+                    json.dumps(
+                        {
+                            "id": telegram_id,
+                            "subscription_id": telegram_id,
+                            # In your scheme, the "key" is the subscription link
+                            # that contains a list of server keys with names.
+                            "key": subscription_url,
+                            "subscription_url": subscription_url,
+                            "key_list_url": subscription_url,
+                        },
+                        ensure_ascii=False,
+                    ).encode("utf-8")
+                )
             except Exception as e:
                 self.send_response(500)
+                self._send_cors_headers()
                 self.end_headers()
-                self.wfile.write(str(e).encode())
+                self.wfile.write(str(e).encode("utf-8", errors="replace"))
         else:
             self.send_response(404)
+            self._send_cors_headers()
             self.end_headers()
 
 print("JadeVPN running: http://0.0.0.0:8000/sub")
