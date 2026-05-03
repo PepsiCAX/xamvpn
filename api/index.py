@@ -101,10 +101,14 @@ def build_common(telegram_id=None):
         result.append(("russia", best, True))
 
     announce_text = (
-        f"Добро пожаловать в JadeVPN, ID: {telegram_id} 🚀"
-        if telegram_id else
-        "Добро пожаловать в JadeVPN 🚀"
+    "JadeVPN 🚀\n"
+    "⚡ — стабильные серверы\n"
+    "LTE — обход белых списков\n"
+    "Подключение автоматически оптимизируется под сеть"
     )
+
+    if telegram_id:
+        announce_text += f"\nID: {telegram_id}"
 
     announce = base64.b64encode(announce_text.encode()).decode()
     expire = int(time.time()) + 30 * 24 * 60 * 60
@@ -129,11 +133,12 @@ def build_common(telegram_id=None):
         if white:
             name = "LTE | Белые списки"
             flag = FLAGS.get("russia", "")
+        elif c == "sweden":
+            name = "⚡ | Швеция (стабильный сервер)"
+            flag = FLAGS.get(c, "")
         else:
             name = RU.get(c, c)
             flag = FLAGS.get(c, "")
-        final_name = f"{flag} {name}".strip()
-        out += clean(k, final_name) + "\n"
 
     return out
 
@@ -192,68 +197,103 @@ def deeplink_page(telegram_id):
 
         html = f"""
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="utf-8">
     <title>JadeVPN Setup</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <style>
         body {{
-            font-family: Arial;
+            margin: 0;
+            font-family: Arial, sans-serif;
             background: #0f0f0f;
             color: white;
-            text-align: center;
-            padding: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
         }}
+
         .card {{
-            max-width: 500px;
-            margin: auto;
+            width: 90%;
+            max-width: 420px;
             background: #1c1c1c;
             padding: 20px;
-            border-radius: 12px;
+            border-radius: 14px;
+            text-align: center;
         }}
+
         a, button {{
             display: block;
             margin: 10px auto;
             padding: 12px;
-            border-radius: 8px;
+            border-radius: 10px;
             text-decoration: none;
             border: none;
             cursor: pointer;
-            width: 80%;
+            width: 90%;
+            font-size: 15px;
         }}
+
+        .store {{
+            background: #2c2c2c;
+            color: white;
+        }}
+
         .btn {{
             background: #2d6cdf;
             color: white;
         }}
-        .store {{
-            background: #333;
-            color: white;
+
+        #msg {{
+            display: none;
+            margin-top: 15px;
+            color: #4ade80;
         }}
     </style>
 </head>
+
 <body>
 
 <div class="card">
     <h2>🚀 Установка JadeVPN</h2>
-    <p>1. Скачайте приложение Happ</p>
 
-    <a class="store" href="https://apps.apple.com/us/app/happ-proxy-utility/id6504287215" target="_blank">📱 App Store</a>
-    <a class="store" href="https://play.google.com/store/apps/details?id=com.happproxy" target="_blank">🤖 Google Play</a>
+    <p>1. Установите приложение Happ VPN</p>
 
-    <p>2. После установки нажмите кнопку ниже</p>
+    <a id="ios" class="store" href="https://apps.apple.com" style="display:none;">📱 App Store</a>
+    <a id="android" class="store" href="https://play.google.com" style="display:none;">🤖 Google Play</a>
+
+    <p>2. После установки нажмите “Далее”</p>
 
     <button class="btn" onclick="go()">Далее</button>
 
-    <p id="msg" style="display:none;">Спасибо за выбор JadeVPN ❤️</p>
+    <div id="msg">Спасибо за выбор JadeVPN ❤️</div>
 </div>
 
 <script>
+function detectOS() {{
+    const ua = navigator.userAgent.toLowerCase();
+
+    if (ua.includes("android")) {{
+        document.getElementById("android").style.display = "block";
+    }} else if (ua.includes("iphone") || ua.includes("ipad")) {{
+        document.getElementById("ios").style.display = "block";
+    }} else {{
+        document.getElementById("ios").style.display = "block";
+        document.getElementById("android").style.display = "block";
+    }}
+}}
+
 function go() {{
     document.getElementById("msg").style.display = "block";
+
     setTimeout(() => {{
         window.location.href = "{deep_link}";
-    }}, 1500);
+    }}, 1200);
 }}
+
+window.onload = detectOS;
 </script>
 
 </body>
