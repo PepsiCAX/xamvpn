@@ -7,7 +7,7 @@ import json
 
 app = Flask(__name__)
 
-# ✅ CORS включён
+# CORS
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 SOURCE = "https://tiagorrg.github.io/vless-checker/keys.json"
@@ -37,7 +37,7 @@ FLAGS = {
 
 _source_cache = {"ts": 0.0, "data": None}
 
-# ===== CORE LOGIC =====
+# ===== CORE =====
 
 def get_source_data():
     now = time.time()
@@ -77,16 +77,20 @@ def clean(key, name):
     return key.split("#")[0] + "#" + name
 
 
+# ===== SUB BUILD =====
+
 def build_common(telegram_id=None):
     data = get_source_data()
     result = []
 
+    # priority
     for c in PRIORITY:
         nodes = extract_all_variants(data, c)
         best = best_latency(nodes)
         if best:
             result.append((c, best, False))
 
+    # others
     for c in data:
         if c in ["updated_at"] or c in PRIORITY or c.startswith("w_"):
             continue
@@ -95,22 +99,19 @@ def build_common(telegram_id=None):
         if best:
             result.append((c, best, False))
 
+    # russia LTE
     nodes = extract_all_variants(data, "russia")
     best = best_latency(nodes)
     if best:
         result.append(("russia", best, True))
 
-    announce_text = (
-    "JadeVPN 🚀\n"
-    "⚡ — стабильные серверы\n"
-    "LTE — обход белых списков\n"
-    "Подключение автоматически оптимизируется под сеть"
-    )
-
+    # announce (НЕ ломает конфиг)
+    announce_text = "JadeVPN 🚀 | ⚡ стабильные | LTE обход | авто-оптимизация"
     if telegram_id:
-        announce_text += f"\nID: {telegram_id}"
+        announce_text += f" | ID:{telegram_id}"
 
     announce = base64.b64encode(announce_text.encode()).decode()
+
     expire = int(time.time()) + 30 * 24 * 60 * 60
     date = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
 
@@ -129,16 +130,22 @@ def build_common(telegram_id=None):
 
     out += "# Количество: " + str(len(result)) + "\n\n"
 
+    # ===== FIXED OUTPUT LOOP =====
     for c, k, white in result:
         if white:
-            name = "LTE | Белые списки"
+            name = "LTE | Обход белых списков"
             flag = FLAGS.get("russia", "")
+
         elif c == "sweden":
             name = "⚡ | Швеция (стабильный сервер)"
             flag = FLAGS.get(c, "")
+
         else:
             name = RU.get(c, c)
             flag = FLAGS.get(c, "")
+
+        final_name = f"{flag} {name}".strip()
+        out += clean(k, final_name) + "\n"
 
     return out
 
@@ -147,15 +154,14 @@ def build_common(telegram_id=None):
 
 @app.route("/", methods=["GET"])
 def home():
-    return "JadeVPN running (Flask on Vercel)"
+    return "JadeVPN running (Flask)"
 
 
 @app.route("/sub/<telegram_id>", methods=["GET"])
 @app.route("/subscriptions/<telegram_id>", methods=["GET"])
 def get_sub(telegram_id):
     try:
-        content = build_common(telegram_id)
-        return Response(content, mimetype="text/plain")
+        return Response(build_common(telegram_id), mimetype="text/plain")
     except Exception as e:
         return str(e), 500
 
@@ -173,20 +179,21 @@ def create_sub():
             or "0"
         )
 
-        base_url = request.headers.get("x-forwarded-proto", "https") + "://" + request.headers.get("host", "")
+        base_url = f"https://{request.headers.get('host')}"
         subscription_url = f"{base_url}/subscriptions/{telegram_id}"
 
         return jsonify({
             "id": telegram_id,
             "subscription_id": telegram_id,
             "key": subscription_url,
-            "subscription_url": subscription_url,
-            "key_list_url": subscription_url
+            "subscription_url": subscription_url
         })
 
     except Exception as e:
         return {"error": str(e)}, 500
-        
+
+
+# ===== DEEPLINK PAGE =====
 
 @app.route("/deeplink/<telegram_id>", methods=["GET"])
 def deeplink_page(telegram_id):
@@ -197,103 +204,98 @@ def deeplink_page(telegram_id):
 
         html = f"""
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
-    <meta charset="utf-8">
-    <title>JadeVPN Setup</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+<title>JadeVPN</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <style>
-        body {{
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #0f0f0f;
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }}
+<style>
+body {{
+    margin:0;
+    background:#0f0f0f;
+    color:white;
+    font-family:Arial;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}}
 
-        .card {{
-            width: 90%;
-            max-width: 420px;
-            background: #1c1c1c;
-            padding: 20px;
-            border-radius: 14px;
-            text-align: center;
-        }}
+.card {{
+    width:90%;
+    max-width:420px;
+    background:#1c1c1c;
+    padding:20px;
+    border-radius:14px;
+    text-align:center;
+}}
 
-        a, button {{
-            display: block;
-            margin: 10px auto;
-            padding: 12px;
-            border-radius: 10px;
-            text-decoration: none;
-            border: none;
-            cursor: pointer;
-            width: 90%;
-            font-size: 15px;
-        }}
+button,a {{
+    width:90%;
+    margin:10px auto;
+    padding:12px;
+    border-radius:10px;
+    border:none;
+    display:block;
+    text-decoration:none;
+    cursor:pointer;
+}}
 
-        .store {{
-            background: #2c2c2c;
-            color: white;
-        }}
+.store {{
+    background:#2c2c2c;
+    color:white;
+}}
 
-        .btn {{
-            background: #2d6cdf;
-            color: white;
-        }}
+.btn {{
+    background:#2d6cdf;
+    color:white;
+}}
 
-        #msg {{
-            display: none;
-            margin-top: 15px;
-            color: #4ade80;
-        }}
-    </style>
+#msg {{
+    display:none;
+    color:#4ade80;
+    margin-top:15px;
+}}
+</style>
 </head>
 
 <body>
 
 <div class="card">
-    <h2>🚀 Установка JadeVPN</h2>
+<h2>🚀 Установка JadeVPN</h2>
 
-    <p>1. Установите приложение Happ VPN</p>
+<p>Установите Happ VPN</p>
 
-    <a id="ios" class="store" href="https://apps.apple.com" style="display:none;">📱 App Store</a>
-    <a id="android" class="store" href="https://play.google.com" style="display:none;">🤖 Google Play</a>
+<a id="ios" class="store" href="https://apps.apple.com/app/happ/id123456789" style="display:none;">📱 App Store</a>
+<a id="android" class="store" href="https://play.google.com/store/apps/details?id=com.happproxy" style="display:none;">🤖 Google Play</a>
 
-    <p>2. После установки нажмите “Далее”</p>
+<p>После установки нажмите “Далее”</p>
 
-    <button class="btn" onclick="go()">Далее</button>
+<button class="btn" onclick="go()">Далее</button>
 
-    <div id="msg">Спасибо за выбор JadeVPN ❤️</div>
+<div id="msg">Спасибо за выбор JadeVPN ❤️</div>
 </div>
 
 <script>
 function detectOS() {{
     const ua = navigator.userAgent.toLowerCase();
-
-    if (ua.includes("android")) {{
-        document.getElementById("android").style.display = "block";
-    }} else if (ua.includes("iphone") || ua.includes("ipad")) {{
-        document.getElementById("ios").style.display = "block";
-    }} else {{
-        document.getElementById("ios").style.display = "block";
-        document.getElementById("android").style.display = "block";
+    if (ua.includes("android")) document.getElementById("android").style.display="block";
+    else if (ua.includes("iphone")||ua.includes("ipad")) document.getElementById("ios").style.display="block";
+    else {{
+        document.getElementById("ios").style.display="block";
+        document.getElementById("android").style.display="block";
     }}
 }}
 
 function go() {{
-    document.getElementById("msg").style.display = "block";
-
+    document.getElementById("msg").style.display="block";
     setTimeout(() => {{
-        window.location.href = "{deep_link}";
-    }}, 1200);
+        window.location.href="{deep_link}";
+    }},1200);
 }}
 
-window.onload = detectOS;
+window.onload=detectOS;
 </script>
 
 </body>
@@ -304,3 +306,4 @@ window.onload = detectOS;
 
     except Exception as e:
         return {"error": str(e)}, 500
+
