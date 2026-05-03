@@ -181,3 +181,21 @@ def create_sub():
 
     except Exception as e:
         return {"error": str(e)}, 500
+        
+
+@app.route("/deeplink/<telegram_id>", methods=["GET"])
+def deeplink(telegram_id):
+    try:
+        base_url = f"https://{request.headers.get('host')}"
+        subscription_url = f"{base_url}/subscriptions/{telegram_id}"
+
+        deep_link = f"happ://add/{subscription_url}"
+
+        return {
+            "telegram_id": telegram_id,
+            "subscription_url": subscription_url,
+            "deeplink": deep_link
+        }
+
+    except Exception as e:
+        return {"error": str(e)}, 500
