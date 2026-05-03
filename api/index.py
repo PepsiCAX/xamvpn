@@ -129,8 +129,9 @@ def build_common(telegram_id=None):
 # ===== VERCEL HANDLER =====
 
 def handler(request):
-    path = request.path
-    method = request.method
+    path = getattr(request, "url", "/").split("?")[0]
+    method = getattr(request, "method", "GET")
+    headers = getattr(request, "headers", {})
 
     # ---- GET ----
     if method == "GET":
@@ -161,7 +162,9 @@ def handler(request):
     if method == "POST":
         if path.startswith("/sub") or path.startswith("/subscriptions"):
             try:
-                body = request.get_json() or {}
+                raw = getattr(request, "body", "{}")
+                body = json.loads(raw or "{}")
+
                 telegram_id = str(
                     body.get("telegram_id")
                     or body.get("telegramId")
@@ -169,8 +172,10 @@ def handler(request):
                     or "0"
                 )
 
-                base_url = request.headers.get("x-forwarded-proto", "https") + "://" + request.headers.get("host")
+                proto = headers.get("x-forwarded-proto", "https")
+                host = headers.get("host", "localhost")
 
+                base_url = proto + "://" + host
                 subscription_url = f"{base_url}/subscriptions/{telegram_id}"
 
                 return {
