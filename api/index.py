@@ -237,8 +237,8 @@ def deeplink_page(telegram_id):
     <h2>🚀 Установка JadeVPN</h2>
     <p>1. Скачайте приложение Happ</p>
 
-    <a class="store" href="https://apps.apple.com" target="_blank">📱 App Store</a>
-    <a class="store" href="https://play.google.com" target="_blank">🤖 Google Play</a>
+    <a class="store" href="https://apps.apple.com/us/app/happ-proxy-utility/id6504287215" target="_blank">📱 App Store</a>
+    <a class="store" href="https://play.google.com/store/apps/details?id=com.happproxy" target="_blank">🤖 Google Play</a>
 
     <p>2. После установки нажмите кнопку ниже</p>
 
