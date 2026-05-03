@@ -1,10 +1,14 @@
 from flask import Flask, request, jsonify, Response
+from flask_cors import CORS
 import time
 import base64
 import requests
 import json
 
 app = Flask(__name__)
+
+# ✅ CORS включён
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 SOURCE = "https://tiagorrg.github.io/vless-checker/keys.json"
 SOURCE_CACHE_TTL_SEC = 300
