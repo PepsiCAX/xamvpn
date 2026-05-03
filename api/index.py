@@ -1,7 +1,10 @@
+from flask import Flask, request, jsonify, Response
 import time
 import base64
 import requests
 import json
+
+app = Flask(__name__)
 
 SOURCE = "https://tiagorrg.github.io/vless-checker/keys.json"
 SOURCE_CACHE_TTL_SEC = 300
@@ -30,7 +33,7 @@ FLAGS = {
 
 _source_cache = {"ts": 0.0, "data": None}
 
-# ===== CORE LOGIC (НЕ ТРОГАЛ) =====
+# ===== CORE LOGIC =====
 
 def get_source_data():
     now = time.time()
@@ -40,6 +43,7 @@ def get_source_data():
     _source_cache["ts"] = now
     _source_cache["data"] = data
     return data
+
 
 def best_latency(nodes):
     if not nodes:
@@ -54,6 +58,7 @@ def best_latency(nodes):
             best_ping = ping
     return best
 
+
 def extract_all_variants(data, country):
     nodes = []
     if country in data:
@@ -63,8 +68,10 @@ def extract_all_variants(data, country):
         nodes += data[w_key].get("top10", [])
     return nodes
 
+
 def clean(key, name):
     return key.split("#")[0] + "#" + name
+
 
 def build_common(telegram_id=None):
     data = get_source_data()
@@ -126,71 +133,47 @@ def build_common(telegram_id=None):
 
     return out
 
-# ===== VERCEL HANDLER =====
 
-def handler(request):
-    path = getattr(request, "url", "/").split("?")[0]
-    method = getattr(request, "method", "GET")
-    headers = getattr(request, "headers", {})
+# ===== ROUTES =====
 
-    # ---- GET ----
-    if method == "GET":
+@app.route("/", methods=["GET"])
+def home():
+    return "JadeVPN running (Flask on Vercel)"
 
-        if path.startswith("/sub") or path.startswith("/subscriptions"):
-            parts = path.split("/")
-            telegram_id = parts[2] if len(parts) > 2 and parts[2] else "0"
 
-            try:
-                content = build_common(telegram_id)
-                return {
-                    "statusCode": 200,
-                    "headers": {
-                        "Content-Type": "text/plain; charset=utf-8",
-                        "Access-Control-Allow-Origin": "*"
-                    },
-                    "body": content
-                }
-            except Exception as e:
-                return {"statusCode": 500, "body": str(e)}
+@app.route("/sub/<telegram_id>", methods=["GET"])
+@app.route("/subscriptions/<telegram_id>", methods=["GET"])
+def get_sub(telegram_id):
+    try:
+        content = build_common(telegram_id)
+        return Response(content, mimetype="text/plain")
+    except Exception as e:
+        return str(e), 500
 
-        return {
-            "statusCode": 200,
-            "body": "JadeVPN running (Vercel)"
-        }
 
-    # ---- POST ----
-    if method == "POST":
-        if path.startswith("/sub") or path.startswith("/subscriptions"):
-            try:
-                raw = getattr(request, "body", "{}")
-                body = json.loads(raw or "{}")
+@app.route("/sub", methods=["POST"])
+@app.route("/subscriptions", methods=["POST"])
+def create_sub():
+    try:
+        body = request.get_json(force=True) or {}
 
-                telegram_id = str(
-                    body.get("telegram_id")
-                    or body.get("telegramId")
-                    or body.get("id")
-                    or "0"
-                )
+        telegram_id = str(
+            body.get("telegram_id")
+            or body.get("telegramId")
+            or body.get("id")
+            or "0"
+        )
 
-                proto = headers.get("x-forwarded-proto", "https")
-                host = headers.get("host", "localhost")
+        base_url = request.headers.get("x-forwarded-proto", "https") + "://" + request.headers.get("host", "")
+        subscription_url = f"{base_url}/subscriptions/{telegram_id}"
 
-                base_url = proto + "://" + host
-                subscription_url = f"{base_url}/subscriptions/{telegram_id}"
+        return jsonify({
+            "id": telegram_id,
+            "subscription_id": telegram_id,
+            "key": subscription_url,
+            "subscription_url": subscription_url,
+            "key_list_url": subscription_url
+        })
 
-                return {
-                    "statusCode": 200,
-                    "headers": {"Content-Type": "application/json"},
-                    "body": json.dumps({
-                        "id": telegram_id,
-                        "subscription_id": telegram_id,
-                        "key": subscription_url,
-                        "subscription_url": subscription_url,
-                        "key_list_url": subscription_url
-                    })
-                }
-
-            except Exception as e:
-                return {"statusCode": 500, "body": str(e)}
-
-    return {"statusCode": 404, "body": "Not found"}
+    except Exception as e:
+        return {"error": str(e)}, 500
