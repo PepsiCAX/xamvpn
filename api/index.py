@@ -184,18 +184,83 @@ def create_sub():
         
 
 @app.route("/deeplink/<telegram_id>", methods=["GET"])
-def deeplink(telegram_id):
+def deeplink_page(telegram_id):
     try:
         base_url = f"https://{request.headers.get('host')}"
         subscription_url = f"{base_url}/subscriptions/{telegram_id}"
-
         deep_link = f"happ://add/{subscription_url}"
 
-        return {
-            "telegram_id": telegram_id,
-            "subscription_url": subscription_url,
-            "deeplink": deep_link
-        }
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>JadeVPN Setup</title>
+    <style>
+        body {{
+            font-family: Arial;
+            background: #0f0f0f;
+            color: white;
+            text-align: center;
+            padding: 40px;
+        }}
+        .card {{
+            max-width: 500px;
+            margin: auto;
+            background: #1c1c1c;
+            padding: 20px;
+            border-radius: 12px;
+        }}
+        a, button {{
+            display: block;
+            margin: 10px auto;
+            padding: 12px;
+            border-radius: 8px;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            width: 80%;
+        }}
+        .btn {{
+            background: #2d6cdf;
+            color: white;
+        }}
+        .store {{
+            background: #333;
+            color: white;
+        }}
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>🚀 Установка JadeVPN</h2>
+    <p>1. Скачайте приложение Happ</p>
+
+    <a class="store" href="https://apps.apple.com" target="_blank">📱 App Store</a>
+    <a class="store" href="https://play.google.com" target="_blank">🤖 Google Play</a>
+
+    <p>2. После установки нажмите кнопку ниже</p>
+
+    <button class="btn" onclick="go()">Далее</button>
+
+    <p id="msg" style="display:none;">Спасибо за выбор JadeVPN ❤️</p>
+</div>
+
+<script>
+function go() {{
+    document.getElementById("msg").style.display = "block";
+    setTimeout(() => {{
+        window.location.href = "{deep_link}";
+    }}, 1500);
+}}
+</script>
+
+</body>
+</html>
+"""
+
+        return Response(html, mimetype="text/html")
 
     except Exception as e:
         return {"error": str(e)}, 500
