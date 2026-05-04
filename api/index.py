@@ -130,31 +130,32 @@ def build_common(telegram_id=None):
 
     out += "# Количество: " + str(len(result)) + "\n\n"
 
-   # ===== FIXED OUTPUT LOOP =====
+    # ===== FIXED OUTPUT LOOP =====
 
-   lte_counter = 1
+    lte_counter = 1
 
-   for c, k, white in result:
-       flag = FLAGS.get(c, "🌍")
+    for c, k, white in result:
+        flag = FLAGS.get(c, "🌍")
 
-       if white:
-           name = f"🚫 Обход #{lte_counter}"
-           flag = FLAGS.get("russia", "")
-           lte_counter += 1
+        if white:
+            name = f"🚫 Обход #{lte_counter}"
+            flag = FLAGS.get("russia", "")
+            lte_counter += 1
 
-       elif c == "sweden":
-           name = "⚡ | Швеция (стабильный сервер)"
+        elif c == "sweden":
+            name = "⚡ | Швеция (стабильный сервер)"
 
-       elif c == "germany":
-           name = "⚡ | Германия (стабильный сервер)"
+        elif c == "germany":
+            name = "⚡ | Германия (стабильный сервер)"
 
-       else:
-           name = RU.get(c, c)
+        else:
+            name = RU.get(c, c)
 
-       # 👇 добавляем username ВЕЗДЕ
-       final_name = f"{flag} {name}".strip() + " @JadeVPNbot"
+        final_name = f"{flag} {name}".strip() + " @JadeVPNbot"
 
-       out += clean(k, final_name) + "\n"
+        out += clean(k, final_name) + "\n"
+
+    return out
 
 
 # ===== ROUTES =====
