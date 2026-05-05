@@ -4,6 +4,7 @@ import time
 import base64
 import requests
 import json
+import re
 
 app = Flask(__name__)
 
@@ -36,6 +37,7 @@ FLAGS = {
 }
 
 _source_cache = {"ts": 0.0, "data": None}
+
 
 # ===== CORE =====
 
@@ -77,35 +79,57 @@ def clean(key, name):
     return key.split("#")[0] + "#" + name
 
 
+# ===== CLEAN NAME =====
+
+def clean_name(raw):
+    if not raw:
+        return ""
+
+    raw = re.sub(r"\[.*?\]", "", raw)
+    raw = raw.replace("_", " ")
+
+    for sep in ["|", "-", "•", "/"]:
+        raw = raw.split(sep)[0]
+
+    return raw.strip()
+
+
 # ===== SUB BUILD =====
 
 def build_common(telegram_id=None):
     data = get_source_data()
     result = []
 
-    # priority
+    # ===== PRIORITY =====
     for c in PRIORITY:
         nodes = extract_all_variants(data, c)
         best = best_latency(nodes)
         if best:
             result.append((c, best, False))
 
-    # others
+    # ===== OTHER COUNTRIES (обычные) =====
     for c in data:
-        if c in ["updated_at"] or c in PRIORITY or c.startswith("w_"):
+        if c in ["updated_at", "other"] or c in PRIORITY or c.startswith("w_"):
             continue
         nodes = extract_all_variants(data, c)
         best = best_latency(nodes)
         if best:
             result.append((c, best, False))
 
-    # russia LTE
+    # ===== SPECIAL OTHER SECTION =====
+    if "other" in data:
+        for n in data["other"].get("top10", []):
+            key = n.get("key")
+            if key:
+                result.append(("other", key, False))
+
+    # ===== RUSSIA LTE =====
     nodes = extract_all_variants(data, "russia")
     best = best_latency(nodes)
     if best:
         result.append(("russia", best, True))
 
-    # announce (НЕ ломает конфиг)
+    # ===== META =====
     announce_text = "JadeVPN 🚀 | ⚡ стабильные | LTE обход | авто-оптимизация"
     if telegram_id:
         announce_text += f" | ID:{telegram_id}"
@@ -130,29 +154,41 @@ def build_common(telegram_id=None):
 
     out += "# Количество: " + str(len(result)) + "\n\n"
 
-    # ===== FIXED OUTPUT LOOP =====
+    # ===== OUTPUT =====
 
     lte_counter = 1
 
     for c, k, white in result:
         flag = FLAGS.get(c, "🌍")
 
+        # LTE
         if white:
             name = f"🚫 Обход #{lte_counter}"
-            flag = FLAGS.get("russia", "")
+            flag = FLAGS.get("russia", "🇷🇺")
             lte_counter += 1
 
+        # стабильные
         elif c == "sweden":
             name = "⚡ | Швеция (стабильный сервер)"
 
         elif c == "germany":
             name = "⚡ | Германия (стабильный сервер)"
 
+        # other section
+        elif c == "other":
+            raw_name = k.split("#")[-1] if "#" in k else "Other"
+            name = clean_name(raw_name) or "Other"
+
+        # обычные неизвестные страны
+        elif c not in RU:
+            raw_name = k.split("#")[-1] if "#" in k else c
+            name = clean_name(raw_name) or c
+
+        # стандарт
         else:
             name = RU.get(c, c)
 
         final_name = f"{flag} {name}".strip() + " @JadeVPNbot"
-
         out += clean(k, final_name) + "\n"
 
     return out
@@ -217,101 +253,22 @@ def deeplink_page(telegram_id):
 <meta charset="utf-8">
 <title>JadeVPN</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<style>
-body {{
-    margin:0;
-    background:#0f0f0f;
-    color:white;
-    font-family:Arial;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    height:100vh;
-}}
-
-.card {{
-    width:90%;
-    max-width:420px;
-    background:#1c1c1c;
-    padding:20px;
-    border-radius:14px;
-    text-align:center;
-}}
-
-button,a {{
-    width:90%;
-    margin:10px auto;
-    padding:12px;
-    border-radius:10px;
-    border:none;
-    display:block;
-    text-decoration:none;
-    cursor:pointer;
-}}
-
-.store {{
-    background:#2c2c2c;
-    color:white;
-}}
-
-.btn {{
-    background:#2d6cdf;
-    color:white;
-}}
-
-#msg {{
-    display:none;
-    color:#4ade80;
-    margin-top:15px;
-}}
-</style>
 </head>
-
-<body>
-
-<div class="card">
+<body style="background:#0f0f0f;color:white;font-family:Arial;text-align:center;padding-top:40px;">
 <h2>🚀 Установка JadeVPN</h2>
-
-<p>Установите Happ VPN</p>
-
-<a id="ios" class="store" href="https://apps.apple.com/app/happ/id123456789" style="display:none;">📱 App Store</a>
-<a id="android" class="store" href="https://play.google.com/store/apps/details?id=com.happproxy" style="display:none;">🤖 Google Play</a>
-
-<p>После установки нажмите “Далее”</p>
-
-<button class="btn" onclick="go()">Далее</button>
-
-<div id="msg">Спасибо за выбор JadeVPN ❤️</div>
-</div>
-
+<p>Нажмите кнопку ниже</p>
+<button onclick="go()" style="padding:12px 20px;border-radius:10px;background:#2d6cdf;color:white;border:none;">Далее</button>
 <script>
-function detectOS() {{
-    const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes("android")) document.getElementById("android").style.display="block";
-    else if (ua.includes("iphone")||ua.includes("ipad")) document.getElementById("ios").style.display="block";
-    else {{
-        document.getElementById("ios").style.display="block";
-        document.getElementById("android").style.display="block";
-    }}
-}}
-
 function go() {{
-    document.getElementById("msg").style.display="block";
     setTimeout(() => {{
         window.location.href="{deep_link}";
-    }},1200);
+    }},1000);
 }}
-
-window.onload=detectOS;
 </script>
-
 </body>
 </html>
 """
-
         return Response(html, mimetype="text/html")
 
     except Exception as e:
         return {"error": str(e)}, 500
-
