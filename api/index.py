@@ -5,6 +5,8 @@ import base64
 import requests
 import json
 import re
+import re
+import urllib.parse
 
 app = Flask(__name__)
 
@@ -37,6 +39,23 @@ FLAGS = {
 }
 
 _source_cache = {"ts": 0.0, "data": None}
+
+
+
+def clean_name_from_key(key):
+    try:
+        name = key.split("#")[-1]
+        name = urllib.parse.unquote(name)
+
+        # удаляем [BL], [IPv6], [CIDR] и прочее
+        name = re.sub(r"\[.*?\]", "", name)
+
+        # убираем лишнее после |
+        name = name.split("|")[0]
+
+        return name.strip()
+    except:
+        return "🌍 Unknown"
 
 
 # ===== CORE =====
@@ -105,7 +124,7 @@ def build_common(telegram_id=None):
         nodes = extract_all_variants(data, c)
         best = best_latency(nodes)
         if best:
-            result.append((c, best, False))
+            result.append((c, best, False, None))
 
     # ===== OTHER COUNTRIES (обычные) =====
     for c in data:
@@ -114,20 +133,29 @@ def build_common(telegram_id=None):
         nodes = extract_all_variants(data, c)
         best = best_latency(nodes)
         if best:
-            result.append((c, best, False))
+            result.append((c, best, False, None))
 
     # ===== SPECIAL OTHER SECTION =====
     if "other" in data:
         for n in data["other"].get("top10", []):
             key = n.get("key")
             if key:
-                result.append(("other", key, False))
+                result.append((c, best, False, None))
+
+    # ===== OTHER COUNTRIES =====
+    if "other_countries" in data:
+        for country_name, info in data["other_countries"].items():
+            nodes = info.get("top10", [])
+            best = best_latency(nodes)
+
+            if best:
+                result.append((c, best, False, None))
 
     # ===== RUSSIA LTE =====
     nodes = extract_all_variants(data, "russia")
     best = best_latency(nodes)
     if best:
-        result.append(("russia", best, True))
+        result.append(("russia", best, True, None))
 
     # ===== META =====
     announce_text = "JadeVPN 🚀 | ⚡ стабильные | LTE обход | авто-оптимизация"
@@ -158,37 +186,34 @@ def build_common(telegram_id=None):
 
     lte_counter = 1
 
-    for c, k, white in result:
+    for item in result:
+        if len(item) == 4:
+            c, k, white, other_name = item
+        else:
+            c, k, white = item
+            other_name = None
+
         flag = FLAGS.get(c, "🌍")
 
-        # LTE
         if white:
             name = f"🚫 Обход #{lte_counter}"
-            flag = FLAGS.get("russia", "🇷🇺")
+            flag = FLAGS.get("russia", "")
             lte_counter += 1
 
-        # стабильные
+        elif other_name:
+            name = clean_name_from_key(k)
+
         elif c == "sweden":
             name = "⚡ | Швеция (стабильный сервер)"
 
         elif c == "germany":
             name = "⚡ | Германия (стабильный сервер)"
 
-        # other section
-        elif c == "other":
-            raw_name = k.split("#")[-1] if "#" in k else "Other"
-            name = clean_name(raw_name) or "Other"
-
-        # обычные неизвестные страны
-        elif c not in RU:
-            raw_name = k.split("#")[-1] if "#" in k else c
-            name = clean_name(raw_name) or c
-
-        # стандарт
         else:
             name = RU.get(c, c)
 
         final_name = f"{flag} {name}".strip() + " @JadeVPNbot"
+
         out += clean(k, final_name) + "\n"
 
     return out
