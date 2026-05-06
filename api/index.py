@@ -3,14 +3,11 @@ from flask_cors import CORS
 import time
 import base64
 import requests
-import json
-import re
 import re
 import urllib.parse
 
 app = Flask(__name__)
 
-# CORS
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 SOURCE = "https://tiagorrg.github.io/vless-checker/keys.json"
@@ -40,29 +37,22 @@ FLAGS = {
     "latvia": "🇱🇻"
 }
 
+# 🔥 твой стабильный сервер
 LATVIA_KEY = "vless://c25c392a-3f5b-4cdc-bcd2-c2d566322a34@31.57.28.130:443?type=tcp&security=reality&encryption=none&flow=xtls-rprx-vision&sni=lv1.node.velum-vpn.ru&fp=randomized&pbk=b2CHaQlTFdnxLpNBjt5FKLH3jQabK6dvh8I30xZc5nM&sid=22e549172f59c481&spx=%2F"
 
 _source_cache = {"ts": 0.0, "data": None}
-
 
 
 def clean_name_from_key(key):
     try:
         name = key.split("#")[-1]
         name = urllib.parse.unquote(name)
-
-        # удаляем [BL], [IPv6], [CIDR] и прочее
         name = re.sub(r"\[.*?\]", "", name)
-
-        # убираем лишнее после |
         name = name.split("|")[0]
-
         return name.strip()
     except:
         return "🌍 Unknown"
 
-
-# ===== CORE =====
 
 def get_source_data():
     now = time.time()
@@ -75,8 +65,6 @@ def get_source_data():
 
 
 def best_latency(nodes):
-    if not nodes:
-        return None
     best = None
     best_ping = 999999
     for n in nodes:
@@ -102,28 +90,13 @@ def clean(key, name):
     return key.split("#")[0] + "#" + name
 
 
-# ===== CLEAN NAME =====
-
-def clean_name(raw):
-    if not raw:
-        return ""
-
-    raw = re.sub(r"\[.*?\]", "", raw)
-    raw = raw.replace("_", " ")
-
-    for sep in ["|", "-", "•", "/"]:
-        raw = raw.split(sep)[0]
-
-    return raw.strip()
-
-
 # ===== SUB BUILD =====
 
 def build_common(telegram_id=None):
     data = get_source_data()
     result = []
 
-    # ===== CUSTOM LATVIA STABLE =====
+    # ===== 🇱🇻 LATVIA (ВСЕГДА ПЕРВАЯ) =====
     latvia_name = "⚡ | Латвия (стабильный сервер)"
     latvia_full = LATVIA_KEY + "#" + urllib.parse.quote(f"{FLAGS['latvia']} {latvia_name} @JadeVPNbot")
     result.append(("latvia", latvia_full, False, None))
@@ -135,36 +108,48 @@ def build_common(telegram_id=None):
         if best:
             result.append((c, best, False, None))
 
-    # ===== OTHER COUNTRIES (обычные) =====
+    # ===== OTHER COUNTRIES =====
     for c in data:
-    	if c in ["updated_at", "other"] or c in PRIORITY or c.startswith("w_") or c == "russia":
+        if c in ["updated_at", "other"] or c in PRIORITY or c.startswith("w_") or c == "russia":
             continue
         nodes = extract_all_variants(data, c)
         best = best_latency(nodes)
         if best:
             result.append((c, best, False, None))
 
-    # ===== SPECIAL OTHER SECTION =====
+    # ===== OTHER (РАЗНЫЕ СТРАНЫ) =====
     if "other" in data:
         for n in data["other"].get("top10", []):
             key = n.get("key")
             if key:
-                result.append((c, best, False, None))
+                name = clean_name_from_key(key)
+                result.append(("other", key, False, name))
 
-    # ===== OTHER COUNTRIES =====
+    # ===== OTHER COUNTRIES (РАСШИРЕННЫЕ) =====
     if "other_countries" in data:
         for country_name, info in data["other_countries"].items():
             nodes = info.get("top10", [])
             best = best_latency(nodes)
-
             if best:
-                result.append((c, best, False, None))
+                result.append((country_name.lower(), best, False, country_name))
 
-    # ===== RUSSIA LTE =====
-    nodes = extract_all_variants(data, "russia")
+    # ===== 🇷🇺 RUSSIA LTE (ТОЛЬКО 1) =====
+    nodes = extract_all_variants(data, "russia")[:2]
     best = best_latency(nodes)
     if best:
         result.append(("russia", best, True, None))
+
+    # ===== REMOVE DUPLICATES =====
+    unique = []
+    seen = set()
+
+    for item in result:
+        key = item[1]
+        if key not in seen:
+            seen.add(key)
+            unique.append(item)
+
+    result = unique
 
     # ===== META =====
     announce_text = "JadeVPN 🚀 | ⚡ стабильные | LTE обход | авто-оптимизация"
@@ -172,7 +157,6 @@ def build_common(telegram_id=None):
         announce_text += f" | ID:{telegram_id}"
 
     announce = base64.b64encode(announce_text.encode()).decode()
-
     expire = int(time.time()) + 30 * 24 * 60 * 60
     date = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
 
@@ -183,7 +167,6 @@ def build_common(telegram_id=None):
     out += "# profile-web-page-url: https://jadevpn.local\n"
     out += "# announce: base64:" + announce + "\n"
     out += f"# subscription-userinfo: upload=0; download=0; total=0; expire={expire}\n"
-    out += "# traffic-limit: 0\n"
     out += "# Date/Time: " + date + "\n"
 
     if telegram_id:
@@ -192,16 +175,9 @@ def build_common(telegram_id=None):
     out += "# Количество: " + str(len(result)) + "\n\n"
 
     # ===== OUTPUT =====
-
     lte_counter = 1
 
-    for item in result:
-        if len(item) == 4:
-            c, k, white, other_name = item
-        else:
-            c, k, white = item
-            other_name = None
-
+    for c, k, white, other_name in result:
         flag = FLAGS.get(c, "🌍")
 
         if white:
@@ -210,7 +186,7 @@ def build_common(telegram_id=None):
             lte_counter += 1
 
         elif other_name:
-            name = clean_name_from_key(k)
+            name = other_name
 
         elif c == "sweden":
             name = "⚡ | Швеция (стабильный сервер)"
@@ -222,7 +198,6 @@ def build_common(telegram_id=None):
             name = RU.get(c, c)
 
         final_name = f"{flag} {name}".strip() + " @JadeVPNbot"
-
         out += clean(k, final_name) + "\n"
 
     return out
@@ -232,53 +207,35 @@ def build_common(telegram_id=None):
 
 @app.route("/", methods=["GET"])
 def home():
-    return "JadeVPN running (Flask)"
+    return "JadeVPN running"
 
 
-@app.route("/sub/<telegram_id>", methods=["GET"])
 @app.route("/subscriptions/<telegram_id>", methods=["GET"])
 def get_sub(telegram_id):
-    try:
-        return Response(build_common(telegram_id), mimetype="text/plain")
-    except Exception as e:
-        return str(e), 500
+    return Response(build_common(telegram_id), mimetype="text/plain")
 
 
-@app.route("/sub", methods=["POST"])
 @app.route("/subscriptions", methods=["POST"])
 def create_sub():
-    try:
-        body = request.get_json(force=True) or {}
+    body = request.get_json(force=True) or {}
+    telegram_id = str(body.get("telegram_id", "0"))
 
-        telegram_id = str(
-            body.get("telegram_id")
-            or body.get("telegramId")
-            or body.get("id")
-            or "0"
-        )
+    base_url = f"https://{request.headers.get('host')}"
+    subscription_url = f"{base_url}/subscriptions/{telegram_id}"
 
-        base_url = f"https://{request.headers.get('host')}"
-        subscription_url = f"{base_url}/subscriptions/{telegram_id}"
+    return jsonify({
+        "id": telegram_id,
+        "subscription_url": subscription_url
+    })
 
-        return jsonify({
-            "id": telegram_id,
-            "subscription_id": telegram_id,
-            "key": subscription_url,
-            "subscription_url": subscription_url
-        })
-
-    except Exception as e:
-        return {"error": str(e)}, 500
-
-
-# ===== DEEPLINK PAGE =====
 
 @app.route("/deeplink/<telegram_id>", methods=["GET"])
 def deeplink_page(telegram_id):
     try:
         base_url = f"https://{request.headers.get('host')}"
         subscription_url = f"{base_url}/subscriptions/{telegram_id}"
-        deep_link = f"happ://add/{subscription_url}"
+
+        happ_link = f"happ://add/{subscription_url}"
 
         html = f"""
 <!DOCTYPE html>
@@ -287,22 +244,62 @@ def deeplink_page(telegram_id):
 <meta charset="utf-8">
 <title>JadeVPN</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {{
+    background:#0f0f0f;
+    color:white;
+    font-family:Arial;
+    text-align:center;
+    padding:30px;
+}}
+
+.btn {{
+    display:block;
+    margin:10px auto;
+    padding:14px;
+    width:280px;
+    border-radius:14px;
+    background:#2d6cdf;
+    color:white;
+    text-decoration:none;
+    font-size:16px;
+}}
+
+.store {{
+    background:#1c1c1c;
+}}
+
+</style>
 </head>
-<body style="background:#0f0f0f;color:white;font-family:Arial;text-align:center;padding-top:40px;">
-<h2>🚀 Установка JadeVPN</h2>
-<p>Нажмите кнопку ниже</p>
-<button onclick="go()" style="padding:12px 20px;border-radius:10px;background:#2d6cdf;color:white;border:none;">Далее</button>
+<body>
+
+<h1>🚀 JadeVPN</h1>
+<p>Подключение через Happ</p>
+
+<a class="btn" onclick="connect()">⚡ Открыть в Happ</a>
+
+<h3>📥 Скачать Happ</h3>
+
+<a class="btn store" href="https://apps.apple.com/">🍎 App Store (iOS)</a>
+<a class="btn store" href="https://play.google.com/store">🤖 Google Play (Android)</a>
+<a class="btn store" href="https://www.microsoft.com/store">💻 Microsoft Store (Windows)</a>
+<a class="btn store" href="https://snapcraft.io/">🐧 Linux (Snap / Flatpak)</a>
+
 <script>
-function go() {{
+function connect() {{
+    window.location.href = "{happ_link}";
+
     setTimeout(() => {{
-        window.location.href="{deep_link}";
-    }},1000);
+        window.location.href = "{subscription_url}";
+    }}, 1500);
 }}
 </script>
+
 </body>
 </html>
 """
         return Response(html, mimetype="text/html")
 
     except Exception as e:
-        return {"error": str(e)}, 500
+        return {{"error": str(e)}}, 500
