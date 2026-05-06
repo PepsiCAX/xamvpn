@@ -25,7 +25,8 @@ RU = {
     "finland": "Финляндия",
     "russia": "Россия",
     "poland": "Польша",
-    "sweden": "Швеция"
+    "sweden": "Швеция",
+    "latvia": "Латвия"
 }
 
 FLAGS = {
@@ -35,8 +36,11 @@ FLAGS = {
     "finland": "🇫🇮",
     "russia": "🇷🇺",
     "poland": "🇵🇱",
-    "sweden": "🇸🇪"
+    "sweden": "🇸🇪",
+    "latvia": "🇱🇻"
 }
+
+LATVIA_KEY = "vless://c25c392a-3f5b-4cdc-bcd2-c2d566322a34@31.57.28.130:443?type=tcp&security=reality&encryption=none&flow=xtls-rprx-vision&sni=lv1.node.velum-vpn.ru&fp=randomized&pbk=b2CHaQlTFdnxLpNBjt5FKLH3jQabK6dvh8I30xZc5nM&sid=22e549172f59c481&spx=%2F"
 
 _source_cache = {"ts": 0.0, "data": None}
 
@@ -118,6 +122,11 @@ def clean_name(raw):
 def build_common(telegram_id=None):
     data = get_source_data()
     result = []
+
+    # ===== CUSTOM LATVIA STABLE =====
+    latvia_name = "⚡ | Латвия (стабильный сервер)"
+    latvia_full = LATVIA_KEY + "#" + urllib.parse.quote(f"{FLAGS['latvia']} {latvia_name} @JadeVPNbot")
+    result.append(("latvia", latvia_full, False, None))
 
     # ===== PRIORITY =====
     for c in PRIORITY:
