@@ -137,7 +137,7 @@ def build_common(telegram_id=None):
 
     # ===== OTHER COUNTRIES (обычные) =====
     for c in data:
-        if c in ["updated_at", "other"] or c in PRIORITY or c.startswith("w_"):
+    	if c in ["updated_at", "other"] or c in PRIORITY or c.startswith("w_") or c == "russia":
             continue
         nodes = extract_all_variants(data, c)
         best = best_latency(nodes)
