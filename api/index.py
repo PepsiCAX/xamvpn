@@ -122,7 +122,7 @@ def build_common(telegram_id=None):
     # ===== 🚫 WHITE LIST BYPASS =====
     GERMANY_MAX_SPEED_NAME = "🇩🇪 Германия #3 ⚡10 Gbit"
     germanygbps_full = GERMANY_MAX_SPPED_KEY + "#" + urllib.parse.quote(
-        f"{GERMANY_MAX_SPEED_NAME} @JadeVPNbot"
+        f"{FLAGS['germany']} {GERMANY_MAX_SPEED_NAME} @JadeVPNbot"
     )
     result.append(("gbpsgermany", germanygbps_full, False, None))
 
@@ -233,7 +233,7 @@ def build_common(telegram_id=None):
             name = "🚫 Обход #2"
 
         elif c == "gbpsgermany":
-            name == "🇩🇪 Германия #3 ⚡10 Gbit"
+            name = "Германия #3 ⚡10 Gbit"
 
         else:
             name = RU.get(c, c)
