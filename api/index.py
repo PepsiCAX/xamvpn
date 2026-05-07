@@ -34,6 +34,7 @@ FLAGS = {
     "russia": "🇷🇺",
     "poland": "🇵🇱",
     "sweden": "🇸🇪",
+    "germany_speed": "🇩🇪",
     "latvia": "🇱🇻",
     "bypass": "🚫"
 }
@@ -119,7 +120,7 @@ def build_common(telegram_id=None):
     bypass_full = LTE_BYPASS_KEY + "#" + urllib.parse.quote(
         f"🚫 {bypass_name} @JadeVPNbot"
     )
-    result.append(("bypass", lte_full, True, None))
+    result.append(("bypass", bypass_full, False, None))
 
     # ===== PRIORITY =====
     for c in PRIORITY:
