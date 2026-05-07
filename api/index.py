@@ -35,6 +35,7 @@ FLAGS = {
     "poland": "🇵🇱",
     "sweden": "🇸🇪",
     "germany_speed": "🇩🇪",
+    "gbpsgermany": "🇩🇪",
     "latvia": "🇱🇻",
     "bypass": "🚫"
 }
