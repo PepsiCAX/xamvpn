@@ -43,6 +43,10 @@ FLAGS = {
 
 LATVIA_KEY = "vless://d3906aaf-5b41-4af1-a9b2-b0df37ef6a62@lt-1.nodes.ac:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=lt-1.nodes.ac&fp=chrome&pbk=U-9TbiZdFk2cJDz87uISYD4EcbChAxlgckirdj6uwnI&sid=9744dc64c70b7c96&type=tcp"
 
+GERMANY_MAX_SPPED_KEY = "vless://1781a225-945c-49c3-85a5-2f6c7e425b2f@5.178.101.109:8447?encryption=none&security=reality&flow=xtls-rprx-vision&sni=www.volkswagen.de&fp=chrome&pbk=kBTMVLCNE0jjwuJF6H5-65l5Pe0QToS0Hg-9Tmaa7Sk&sid=1a2b3c4d&type=tcp&spx=%2F"
+
+
+
 GERMANY_SPEED_KEY = "vless://d3906aaf-5b41-4af1-a9b2-b0df37ef6a62@deu-1.nodes.ac:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=deu-1.nodes.ac&fp=chrome&pbk=17oT99vO8kHKvbL1Qu0HJ5J5vAhC1Jp1NBdQrdSZjSw&sid=193409f66d2d9844&type=tcp"
 
 LTE_BYPASS_KEY = "vless://d3906aaf-5b41-4af1-a9b2-b0df37ef6a62@wl-1-1.legendary.ac:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=wl-1-1.legendary.ac&fp=chrome&pbk=Ce2abow3fU3pN2_mlX3uJW93sBMgTI9qNo5q7_EgFTA&sid=c4a70eddb745b1ea&type=tcp"
@@ -116,12 +120,19 @@ def build_common(telegram_id=None):
     result.append(("germany_speed", germany_speed_full, False, None))
 
     # ===== 🚫 WHITE LIST BYPASS =====
+    GERMANY_MAX_SPEED_NAME = "🇩🇪 Германия #3 ⚡10 Gbit"
+    germanygbps_full = GERMANY_MAX_SPPED_KEY + "#" + urllib.parse.quote(
+        f"{GERMANY_MAX_SPEED_NAME} @JadeVPNbot"
+    )
+    result.append(("gbpsgermany", germanygbps_full, False, None))
+
+    # ===== 🚫 WHITE LIST BYPASS =====
     bypass_name = "Обход #2"
     bypass_full = LTE_BYPASS_KEY + "#" + urllib.parse.quote(
-        f"🚫 {bypass_name} @JadeVPNbot"
+        f"{bypass_name} @JadeVPNbot"
     )
     result.append(("bypass", bypass_full, False, None))
-
+    
     # ===== PRIORITY =====
     for c in PRIORITY:
         nodes = extract_all_variants(data, c)
@@ -220,6 +231,9 @@ def build_common(telegram_id=None):
 
         elif c == "bypass":
             name = "🚫 Обход #2"
+
+        elif c == "gbpsgermany":
+            name == "🇩🇪 Германия #3 ⚡10 Gbit"
 
         else:
             name = RU.get(c, c)
