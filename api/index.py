@@ -34,11 +34,17 @@ FLAGS = {
     "russia": "🇷🇺",
     "poland": "🇵🇱",
     "sweden": "🇸🇪",
-    "latvia": "🇱🇻"
+    "latvia": "🇱🇻",
+    "bypass": "🚫"
 }
 
-# 🔥 твой стабильный сервер
-LATVIA_KEY = "vless://c25c392a-3f5b-4cdc-bcd2-c2d566322a34@31.57.28.130:443?type=tcp&security=reality&encryption=none&flow=xtls-rprx-vision&sni=lv1.node.velum-vpn.ru&fp=randomized&pbk=b2CHaQlTFdnxLpNBjt5FKLH3jQabK6dvh8I30xZc5nM&sid=22e549172f59c481&spx=%2F"
+# 🔥 стабильные сервера JadeVPN
+
+LATVIA_KEY = "vless://d3906aaf-5b41-4af1-a9b2-b0df37ef6a62@lt-1.nodes.ac:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=lt-1.nodes.ac&fp=chrome&pbk=U-9TbiZdFk2cJDz87uISYD4EcbChAxlgckirdj6uwnI&sid=9744dc64c70b7c96&type=tcp"
+
+GERMANY_SPEED_KEY = "vless://d3906aaf-5b41-4af1-a9b2-b0df37ef6a62@deu-1.nodes.ac:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=deu-1.nodes.ac&fp=chrome&pbk=17oT99vO8kHKvbL1Qu0HJ5J5vAhC1Jp1NBdQrdSZjSw&sid=193409f66d2d9844&type=tcp"
+
+LTE_BYPASS_KEY = "vless://d3906aaf-5b41-4af1-a9b2-b0df37ef6a62@wl-1-1.legendary.ac:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=wl-1-1.legendary.ac&fp=chrome&pbk=Ce2abow3fU3pN2_mlX3uJW93sBMgTI9qNo5q7_EgFTA&sid=c4a70eddb745b1ea&type=tcp"
 
 _source_cache = {"ts": 0.0, "data": None}
 
@@ -100,6 +106,20 @@ def build_common(telegram_id=None):
     latvia_name = "⚡ | Латвия (стабильный сервер)"
     latvia_full = LATVIA_KEY + "#" + urllib.parse.quote(f"{FLAGS['latvia']} {latvia_name} @JadeVPNbot")
     result.append(("latvia", latvia_full, False, None))
+
+    # ===== 🇩🇪 GERMANY SPEED =====
+    germany_speed_name = "⚡ | Германия (скоростной сервер)"
+    germany_speed_full = GERMANY_SPEED_KEY + "#" + urllib.parse.quote(
+        f"🇩🇪 {germany_speed_name} @JadeVPNbot"
+    )
+    result.append(("germany_speed", germany_speed_full, False, None))
+
+    # ===== 🚫 WHITE LIST BYPASS =====
+    bypass_name = "Обход #2"
+    bypass_full = LTE_BYPASS_KEY + "#" + urllib.parse.quote(
+        f"🚫 {bypass_name} @JadeVPNbot"
+    )
+    result.append(("bypass", lte_full, True, None))
 
     # ===== PRIORITY =====
     for c in PRIORITY:
@@ -192,7 +212,13 @@ def build_common(telegram_id=None):
             name = "⚡ | Швеция (стабильный сервер)"
 
         elif c == "germany":
-            name = "⚡ | Германия (стабильный сервер)"
+            name = "⚡ | Германия"
+
+        elif c == "germany_speed":
+            name = "⚡ | Германия (скоростной сервер)"
+
+        elif c == "bypass":
+            name = "🚫 Обход #2"
 
         else:
             name = RU.get(c, c)
